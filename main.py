@@ -16,6 +16,7 @@ other = []
 
 run = True
 
+
 def add_todo(date, task):
     if date in tasks:
         tasks[date].append(task)
@@ -25,8 +26,10 @@ def add_todo(date, task):
         tasks[date].append(task)
         print(f"Задача {task} добавлена на дату {date}!")
 
+
 while run:
-    command = input("Введите команду: ")gi
+    command = input("Введите команду: ")
+    gi
     if command == "help":
         print(HELP)
     elif command == "show":
