@@ -29,7 +29,6 @@ def add_todo(date, task):
 
 while run:
     command = input("Введите команду: ")
-    gi
     if command == "help":
         print(HELP)
     elif command == "show":
@@ -45,11 +44,9 @@ while run:
         task = input("Введите название задачи: ")
         add_todo(date, task)
 
-
     elif command == "random":
         task = random.choice(RANDOM_TASKS)
         add_todo("Сегодня", task)
-
 
     elif command == "exit":
         print("Спасибо за использование! До свидания!")
