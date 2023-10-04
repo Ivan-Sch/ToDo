@@ -19,6 +19,20 @@ def add_todo(date, task):
     else:
         tasks[date] = []
         tasks[date].append(task)
+
+kategory = {"Домашние дела": ["помыть посуду", "приготовить еду"], "Школьные дела": ["сделать уроки", "приготовить рюкзак"]}
+def get_kategory(input):
+    get_kat = ""
+    not_get_kat = "@Данной категории нет"
+    for i in kategory:
+        if input in kategory[i]:
+            get_kat = f'@{i}'
+            break
+    if get_kat:
+        return get_kat
+    else:
+        return not_get_kat
+
 @bot.message_handler(commands=["help"])
 def help(message):
     bot.send_message(message.chat.id, HELP)
@@ -28,8 +42,11 @@ def add(message):
     command = message.text.split(maxsplit=2)
     date = command[1].lower()
     task = command[2]
-    add_todo(date, task)
-    text = f"Задача {task} добавлена на дату {date}"
+    if len(task) < 3:
+        text = "Ошибка- задача меньше трех символов"
+    else:
+        add_todo(date, task)
+        text = f"Задача {task} добавлена на дату {date} - {get_kategory(task)}"
     bot.send_message(message.chat.id, text)
 
 @bot.message_handler(commands=["random"])
@@ -48,7 +65,7 @@ def show(message):
     if date in tasks:
         text = date.upper() + "\n"
         for task in tasks[date]:
-            text = text + "[] " + task + "\n"
+            text = f'{text} [] {task} {get_kategory(task)} \n'
     else:
         text = "Задач на эту дату нет"
     bot.send_message(message.chat.id, text)
