@@ -42,10 +42,11 @@ def get_kategory(input):
 def help(message):
     bot.send_message(message.chat.id, HELP)
 
+all_dates = ["сегодня", "завтра"]
 @bot.message_handler(commands=["add"])
 def add(message):
     command = message.text.split(maxsplit=2)
-    if len(command) == 1:
+    if len(command) == 1 or command[1].lower() not in all_dates:
         text = "Ошибка команды. См. /help"
     else:
         date = command[1].lower()
@@ -68,7 +69,7 @@ def random_add(message):
 @bot.message_handler(commands=["show", "print"])
 def show(message):
     command = message.text.split(maxsplit=1)
-    if len(command) == 1:
+    if len(command) == 1 or command[1].lower() not in all_dates:
         text = "Ошибка команды. См. /help"
     else:
         date = command[1].lower()
