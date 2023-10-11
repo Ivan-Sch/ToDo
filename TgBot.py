@@ -61,11 +61,20 @@ def is_valid_date(date_string):
         return False
 
 
-def get_date(date):
+def get_date_slova(date):
     if date == datetime.date.today().strftime('%d.%m.%Y'):
         return "сегодня"
     if date == str((datetime.date.today() + datetime.timedelta(days=1)).strftime('%d.%m.%Y')):
         return "завтра"
+    else:
+        return date
+
+
+def get_date_ddmmyyyy(date):
+    if date == "сегодня":
+        return datetime.date.today().strftime('%d.%m.%Y')
+    if date == "завтра":
+        return str((datetime.date.today() + datetime.timedelta(days=1)).strftime('%d.%m.%Y'))
     else:
         return date
 
@@ -76,14 +85,14 @@ def add(message):
     if len(command) <= 2 or not is_valid_date(command[1].lower()):
         text = "Ошибка команды. См. /help"
     else:
-        date = get_date(command[1].lower())
-
+        # date = get_date(command[1].lower())
+        date = get_date_ddmmyyyy(command[1].lower())
         task = command[2]
         if len(task) < 3:
             text = "Ошибка- задача меньше трех символов"
         else:
             add_todo(date, task, message.chat.id)
-            text = f"Задача {task} добавлена на дату {date} - {get_kategory(task)}"
+            text = f"Задача {task} добавлена на дату {get_date_slova(date)} - {get_kategory(task)}"
     bot.send_message(message.chat.id, text)
 
 @bot.message_handler(commands=["rez"])
@@ -94,7 +103,7 @@ def rez(message):
 def random_add(message):
     date = "сегодня"
     task = random.choice(RANDOM_TASKS)
-    add_todo(date, task, message.chat.id)
+    add_todo(get_date_ddmmyyyy(date), task, message.chat.id)
     text = f"Задача {task} добавлена на дату {date}"
     bot.send_message(message.chat.id, text)
 
@@ -104,12 +113,14 @@ def show(message):
     if len(command) == 1 or not is_valid_date(command[1].lower()):
         text = "Ошибка команды. См. /help"
     else:
-        date = command[1].lower()
+        # date = command[1].lower()
+        date = get_date_ddmmyyyy(command[1].lower())
+
         text = ""
         if message.chat.id not in baza_id:
             baza_id[message.chat.id] = {}
         if date in baza_id[message.chat.id]:
-            text = date.upper() + "\n"
+            text = get_date_slova(date).upper() + "\n"
             for task in baza_id[message.chat.id][date]:
                 text = f'{text} [---> {task} {get_kategory(task)} \n'
         else:
