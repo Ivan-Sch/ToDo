@@ -1,5 +1,5 @@
 import telebot
-
+import datetime
 import random
 token = "xx"
 
@@ -9,7 +9,9 @@ RANDOM_TASKS = ["Записаться на курс", "Записаться на
 HELP = """
 /help - справка.
 /add - добавить задачу.
+""Пример: /add сегодня помыть посуду
 /show - напечатать все наши задачи.
+""Пример: /show сегодня
 /random - добавить случайную задачу на дату Сегодня"""
 
 tasks = {}
@@ -17,7 +19,7 @@ baza_id = {}
 
 @bot.message_handler(commands=['start'])
 def say_hi(message):
-    bot.send_message(message.chat.id, f'Привет, {message.chat.id}!\n Для получения инструкции напишите /help.')
+    bot.send_message(message.chat.id, f'Привет, {message.chat.first_name}!\n Для получения инструкции напишите /help.')
 
 
 def add_todo(date, task, id):
@@ -46,15 +48,36 @@ def get_kategory(input):
 def help(message):
     bot.send_message(message.chat.id, HELP)
 
-all_dates = ["сегодня", "завтра"]
+def is_valid_date(date_string):
+    if date_string in ["сегодня", "завтра"]:
+        if date_string == "сегодня":
+            date_string = datetime.date.today().strftime('%d.%m.%Y')
+        else:
+            date_string = str((datetime.date.today() + datetime.timedelta(days=1)).strftime('%d.%m.%Y'))
+    try:
+        datetime.datetime.strptime(date_string, '%d.%m.%Y')
+        return True
+    except ValueError:
+        return False
+
+
+def get_date(date):
+    if date == datetime.date.today().strftime('%d.%m.%Y'):
+        return "сегодня"
+    if date == str((datetime.date.today() + datetime.timedelta(days=1)).strftime('%d.%m.%Y')):
+        return "завтра"
+    else:
+        return date
+
 
 @bot.message_handler(commands=["add"])
 def add(message):
     command = message.text.split(maxsplit=2)
-    if len(command) == 1 or command[1].lower() not in all_dates:
+    if len(command) <= 2 or not is_valid_date(command[1].lower()):
         text = "Ошибка команды. См. /help"
     else:
-        date = command[1].lower()
+        date = get_date(command[1].lower())
+
         task = command[2]
         if len(task) < 3:
             text = "Ошибка- задача меньше трех символов"
@@ -78,7 +101,7 @@ def random_add(message):
 @bot.message_handler(commands=["show", "print"])
 def show(message):
     command = message.text.split(maxsplit=1)
-    if len(command) == 1 or command[1].lower() not in all_dates:
+    if len(command) == 1 or not is_valid_date(command[1].lower()):
         text = "Ошибка команды. См. /help"
     else:
         date = command[1].lower()
@@ -88,7 +111,7 @@ def show(message):
         if date in baza_id[message.chat.id]:
             text = date.upper() + "\n"
             for task in baza_id[message.chat.id][date]:
-                text = f'{text} [] {task} {get_kategory(task)} \n'
+                text = f'{text} [---> {task} {get_kategory(task)} \n'
         else:
             text = "Задач на эту дату нет"
     bot.send_message(message.chat.id, text)
@@ -97,6 +120,5 @@ def show(message):
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     bot.send_message(message.chat.id, 'Я не понимаю эту команду.')
-
 
 bot.polling(none_stop=True)
