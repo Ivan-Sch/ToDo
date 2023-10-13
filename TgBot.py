@@ -21,7 +21,6 @@ baza_id = {}
 def say_hi(message):
     bot.send_message(message.chat.id, f'Привет, {message.chat.first_name}!\n Для получения инструкции напишите /help.')
 
-
 def add_todo(date, task, id):
     if id not in baza_id:
         baza_id[id] = {}
@@ -60,7 +59,6 @@ def is_valid_date(date_string):
     except ValueError:
         return False
 
-
 def get_date_slova(date):
     if date == datetime.date.today().strftime('%d.%m.%Y'):
         return "сегодня"
@@ -77,7 +75,6 @@ def get_date_ddmmyyyy(date):
         return str((datetime.date.today() + datetime.timedelta(days=1)).strftime('%d.%m.%Y'))
     else:
         return date
-
 
 @bot.message_handler(commands=["add"])
 def add(message):
@@ -127,9 +124,33 @@ def show(message):
             text = "Задач на эту дату нет"
     bot.send_message(message.chat.id, text)
 
+@bot.message_handler(commands=["time"])
+def my_time(message):
+    bot.send_message(message.chat.id, datetime.datetime.now())
+
 # Обработчик сообщений без команды
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     bot.send_message(message.chat.id, 'Я не понимаю эту команду.')
+
+
+def del_last_date():
+    last_date = str((datetime.date.today() - datetime.timedelta(days=1)).strftime('%d.%m.%Y'))
+    for id in baza_id:
+        if last_date in baza_id[id]:
+            del baza_id[id][last_date]
+
+# Запускаем планировщик задач
+scheduler = BackgroundScheduler()
+scheduler.add_job(del_last_date, 'interval', minutes=30)  # Запускать каждые 30 минут
+scheduler.start()
+
+# Обработка команды /delete_expired_tasks
+@bot.message_handler(commands=['del_last_date'])
+def delete_expired_tasks_command(message):
+    del_last_date()
+
+
+print(datetime.datetime.now())
 
 bot.polling(none_stop=True)
