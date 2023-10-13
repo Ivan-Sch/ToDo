@@ -1,5 +1,6 @@
-import telebot
 import datetime
+from apscheduler.schedulers.background import BackgroundScheduler
+import telebot
 import random
 token = "xx"
 
@@ -14,7 +15,6 @@ HELP = """
 ""Пример: /show сегодня
 /random - добавить случайную задачу на дату Сегодня"""
 
-tasks = {}
 baza_id = {}
 
 @bot.message_handler(commands=['start'])
