@@ -1,15 +1,26 @@
+import sqlite3
 import telebot
 from telebot import custom_filters
 from telebot import StateMemoryStorage
 from telebot.handler_backends import StatesGroup, State
 import datetime
 import random
-
+from config import TOKEN
 
 state_storage = StateMemoryStorage()
 # Вставить свой токет или оставить как есть, тогда мы создадим его сами
-TOKEN = ""
 bot = telebot.TeleBot(TOKEN, state_storage=state_storage, parse_mode='Markdown')
+
+# Подключение к базе данных
+with sqlite3.connect('bazaid.db') as conn:
+    cursor = conn.cursor()
+    # Создание таблицы tasks, если она не существует
+    cursor.execute('''CREATE TABLE IF NOT EXISTS bazaid
+                      (id,
+                       task TEXT,
+                       date TEXT)''')
+    conn.commit()
+
 
 baza_id = {}
 kategory = {"Домашние дела": ["помыть посуду", "приготовить еду"],
@@ -19,7 +30,7 @@ RANDOM_TASKS = ["помыть посуду", "приготовить еду", "�
 
 def get_kategory(input):
     get_kat = ""
-    not_get_kat = " -@данной категории нет"
+    not_get_kat = " -@Данной категории нет"
     for i in kategory:
         if input in kategory[i]:
             get_kat = f' -@{i}'
@@ -63,7 +74,7 @@ def get_date_ddmmyyyy(date):
 
 class PollState(StatesGroup):
     name = State()
-    age = State()
+    like = State()
 
 
 class HelpState(StatesGroup):
@@ -119,13 +130,13 @@ def name(message):
     with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
         data['name'] = message.text
     bot.send_message(message.chat.id, 'Супер! [Нажми](https://github.com/Ivan-Sch)- тут мои рабочие коды. Как тебе?')  # Можно менять текст
-    bot.set_state(message.from_user.id, PollState.age, message.chat.id)
+    bot.set_state(message.from_user.id, PollState.like, message.chat.id)
 
 
-@bot.message_handler(state=PollState.age)
+@bot.message_handler(state=PollState.like)
 def age(message):
     with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
-        data['age'] = message.text
+        data['like'] = message.text
     bot.send_message(message.chat.id, 'Спасибо за использование меня!', reply_markup=menu_keyboard)  # Можно менять текст
     bot.delete_state(message.from_user.id, message.chat.id)
 
@@ -145,47 +156,48 @@ def get_date(message):
     else:
         date = get_date_ddmmyyyy(date)
         bot.send_message(message.chat.id, f'Укажите, какую задачу вы хотите добавить на дату *"{date}"*:')
-        bot.register_next_step_handler(message, add_todo, date, message.chat.id)
+        bot.register_next_step_handler(message, save_task, date, message.chat.id)
 
 
-def add_todo(message, date, id):
+# Функция для сохранения задачи в базе данных
+def save_task(message, date, id):
     if type(message) is telebot.types.Message:
         task = message.text
     else:
         task = message
-
-    if id not in baza_id:
-        baza_id[id] = {}
-    if date in baza_id[id]:
-        baza_id[id][date].append(task)
-    else:
-        baza_id[id][date] = []
-        baza_id[id][date].append(task)
+    with sqlite3.connect('bazaid.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO bazaid (id, task, date) VALUES (?, ?, ?)", (id, task, date))
+        conn.commit()
     bot.send_message(id, f'Задача *"{task}"* добавлена на _"{date}"_.')
 
 
 @bot.message_handler(func=lambda message: text_button_2 == message.text)
 def help_command(message):
     bot.send_message(message.chat.id, 'Укажите дату:')
-    bot.register_next_step_handler(message, get_date_show)
+    bot.register_next_step_handler(message, get_tasks)
 
 
-# Обработчик следующего шага - получение даты
-def get_date_show(message):
+# Функция для получения списка задач на текущий день
+def get_tasks(message):
+    # today = datetime.datetime.now().strftime('%d.%m.%Y')
     date = message.text.lower()
+    id = message.chat.id
     if not is_valid_date(date):
         text = "Ошибка команды."
     else:
         date = get_date_ddmmyyyy(date)
-        text = ""
-        if message.chat.id not in baza_id:
-            baza_id[message.chat.id] = {}
-        if date in baza_id[message.chat.id]:
-            text = get_date_slova(date).upper() + "\n"
-            for task in baza_id[message.chat.id][date]:
-                text = f'*{text}* > {task} _{get_kategory(task)}_ \n'
+        with sqlite3.connect('bazaid.db') as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT task FROM bazaid WHERE date=? AND id=?", (date, id))
+            tasks = cursor.fetchall()
+            taskss = [task[0] for task in tasks]
+        if len(taskss) == 0:
+            text = f'Задач на эту дату нет.'
         else:
-            text = "Задач на эту дату нет."
+            text = f'*{get_date_slova(date).upper()}* \n'
+            for task in taskss:
+                text = f'{text} > *{task}* _{get_kategory(task)}_ \n'
     bot.send_message(message.chat.id, text)
 
 
@@ -193,12 +205,7 @@ def get_date_show(message):
 def help_command(message):
     date = "сегодня"
     task = random.choice(RANDOM_TASKS)
-    add_todo(task, get_date_ddmmyyyy(date), message.chat.id)  # Можно менять текст
-
-
-@bot.message_handler(commands=["rez"])
-def rez(message):
-    bot.send_message(message.chat.id, str(baza_id))
+    save_task(task, get_date_ddmmyyyy(date), message.chat.id)  # Можно менять текст
 
 
 bot.add_custom_filter(custom_filters.StateFilter(bot))
