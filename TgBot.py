@@ -21,7 +21,6 @@ with sqlite3.connect('bazaid.db') as conn:
                        date TEXT)''')
     conn.commit()
 
-
 baza_id = {}
 kategory = {"Домашние дела": ["помыть посуду", "приготовить еду"],
             "Школьные дела": ["сделать уроки", "приготовить рюкзак"]}
@@ -85,7 +84,7 @@ text_poll = "Что ты умеешь делать?"
 text_button_1 = "Добавить задачу"  # Можно менять текст
 text_button_2 = "Посмотреть задачу"  # Можно менять текст
 text_button_3 = "Random"  # Можно менять текст
-
+text_button_4 = "Удалить задачу"  # Можно менять текст
 
 menu_keyboard = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
 
@@ -98,6 +97,9 @@ menu_keyboard.add(
 menu_keyboard.add(
     telebot.types.KeyboardButton(
         text_button_1,
+    ),
+    telebot.types.KeyboardButton(
+        text_button_4,
     )
 )
 
@@ -121,7 +123,8 @@ def start_ex(message):
 
 @bot.message_handler(func=lambda message: text_poll == message.text)
 def first(message):
-    bot.send_message(message.chat.id, 'Супер! Я _бот_, который добавляет твои задачи на день какой ты хочешь. Как тебя зовут?')  # Можно менять текст
+    bot.send_message(message.chat.id,
+                     'Супер! Я _бот_, который добавляет твои задачи на день какой ты хочешь. Как тебя зовут?')  # Можно менять текст
     bot.set_state(message.from_user.id, PollState.name, message.chat.id)
 
 
@@ -129,7 +132,8 @@ def first(message):
 def name(message):
     with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
         data['name'] = message.text
-    bot.send_message(message.chat.id, 'Супер! [Нажми](https://github.com/Ivan-Sch)- тут мои рабочие коды. Как тебе?')  # Можно менять текст
+    bot.send_message(message.chat.id,
+                     'Супер! [Нажми](https://github.com/Ivan-Sch)- тут мои рабочие коды. Как тебе?')  # Можно менять текст
     bot.set_state(message.from_user.id, PollState.like, message.chat.id)
 
 
@@ -137,7 +141,8 @@ def name(message):
 def age(message):
     with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
         data['like'] = message.text
-    bot.send_message(message.chat.id, 'Спасибо за использование меня!', reply_markup=menu_keyboard)  # Можно менять текст
+    bot.send_message(message.chat.id, 'Спасибо за использование меня!',
+                     reply_markup=menu_keyboard)  # Можно менять текст
     bot.delete_state(message.from_user.id, message.chat.id)
 
 
@@ -172,15 +177,7 @@ def save_task(message, date, id):
     bot.send_message(id, f'Задача *"{task}"* добавлена на _"{date}"_.')
 
 
-@bot.message_handler(func=lambda message: text_button_2 == message.text)
-def help_command(message):
-    bot.send_message(message.chat.id, 'Укажите дату:')
-    bot.register_next_step_handler(message, get_tasks)
-
-
-# Функция для получения списка задач на текущий день
 def get_tasks(message):
-    # today = datetime.datetime.now().strftime('%d.%m.%Y')
     date = message.text.lower()
     id = message.chat.id
     if not is_valid_date(date):
@@ -196,9 +193,20 @@ def get_tasks(message):
             text = f'Задач на эту дату нет.'
         else:
             text = f'*{get_date_slova(date).upper()}* \n'
-            for task in taskss:
-                text = f'{text} > *{task}* _{get_kategory(task)}_ \n'
-    bot.send_message(message.chat.id, text)
+            for i in range(len(taskss)):
+                # for task in taskss:
+                text = f'{text}{i + 1}) *{taskss[i]}* _{get_kategory(taskss[i])}_ \n'
+    return text
+
+
+@bot.message_handler(func=lambda message: text_button_2 == message.text)
+def help_command(message):
+    bot.send_message(message.chat.id, 'Укажите дату:')
+    bot.register_next_step_handler(message, get_tasks_com_2)
+
+
+def get_tasks_com_2(message):
+    bot.send_message(message.chat.id, get_tasks(message))
 
 
 @bot.message_handler(func=lambda message: text_button_3 == message.text)
@@ -208,7 +216,38 @@ def help_command(message):
     save_task(task, get_date_ddmmyyyy(date), message.chat.id)  # Можно менять текст
 
 
+@bot.message_handler(func=lambda message: text_button_4 == message.text)
+def help_command(message):
+    bot.send_message(message.chat.id, 'Укажите дату:')
+    bot.register_next_step_handler(message, get_tasks_com_4)
+
+
+def get_tasks_com_4(message):
+    date = message
+    get_task = get_tasks(date)
+    if get_task in ["Ошибка команды.", "Задач на эту дату нет."]:
+        bot.send_message(message.chat.id, get_task)
+    else:
+        bot.send_message(message.chat.id, get_task)
+        bot.send_message(message.chat.id, "Укажите номер:")
+        bot.register_next_step_handler(message, del_task, date)
+
+
+def del_task(message, date):
+    number_del = message.text
+    id_user = message.chat.id
+    task_del = get_tasks(date).split(")")[int(number_del)].split("*")[1]
+    # Подключение к базе данных
+    with sqlite3.connect('bazaid.db') as conn:
+        cursor = conn.cursor()
+        # Создание таблицы tasks, если она не существует
+        cursor.execute("DELETE FROM bazaid WHERE id = ? AND task = ?", (id_user, task_del))
+        conn.commit()
+
+    bot.send_message(message.chat.id, "Удаление прошло успешно!")
+
+
 bot.add_custom_filter(custom_filters.StateFilter(bot))
 bot.add_custom_filter(custom_filters.TextMatchFilter())
 
-bot.polling(none_stop=True)
+bot.infinity_polling()
