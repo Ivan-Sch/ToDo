@@ -6,6 +6,7 @@ from telebot.handler_backends import StatesGroup, State
 import datetime
 import random
 from config import TOKEN
+from apscheduler.schedulers.background import BackgroundScheduler
 
 state_storage = StateMemoryStorage()
 # Вставить свой токет или оставить как есть, тогда мы создадим его сами
@@ -245,6 +246,37 @@ def del_task(message, date):
         conn.commit()
 
     bot.send_message(message.chat.id, "Удаление прошло успешно!")
+
+
+def update_tasks():
+    # today = datetime.now().strftime('%Y-%m-%d')
+    yesterday = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%d.%m.%Y')
+
+    # Удаление задач завершенных вчера
+    with sqlite3.connect('bazaid.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM bazaid WHERE date=?", (yesterday,))
+        conn.commit()
+
+    # # Обновление задач на текущий день
+    # cursor.execute("UPDATE tasks SET date=? WHERE date=?", (today, yesterday))
+    # conn.commit()
+
+# def del_last_date():
+#     last_date = str((datetime.date.today() - datetime.timedelta(days=1)).strftime('%d.%m.%Y'))
+#     for id in baza_id:
+#         if last_date in baza_id[id]:
+#             del baza_id[id][last_date]
+
+# Запускаем планировщик задач
+scheduler = BackgroundScheduler()
+scheduler.add_job(update_tasks, 'interval', minutes=30)  # Запускать каждые 30 минут
+scheduler.start()
+
+# Обработка команды /delete_expired_tasks
+@bot.message_handler(commands=['update_tasks'])
+def delete_expired_tasks_command(message):
+    update_tasks()
 
 
 bot.add_custom_filter(custom_filters.StateFilter(bot))
